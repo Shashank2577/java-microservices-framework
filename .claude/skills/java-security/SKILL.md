@@ -85,6 +85,140 @@ public OrderId place(PlaceOrderCommand cmd) { ... }
 
 **Never** rely on UI hiding a button. Every server-side action checks authorization.
 
+## 2A. Authorization Model — RBAC + ABAC
+
+§2 is the *mechanics*. This section is the *model*: how roles, permissions, and attributes are defined, stored, and evaluated.
+
+### Role-Based Access Control (RBAC) — the default
+
+Three-level model:
+- **Role** = bundle of permissions assigned to users (`ADMIN`, `MEMBER`, `VIEWER`, `BILLING_ADMIN`).
+- **Permission** = `<resource>:<action>` (`orders:create`, `orders:read`, `orders:cancel`, `tenants:provision`).
+- **Assignment** = `(tenant_id, user_id, role)`; many-to-many.
+
+Schema:
+
+```sql
+CREATE TABLE roles (
+  tenant_id    UUID         NOT NULL,
+  name         VARCHAR(64)  NOT NULL,
+  description  TEXT         NULL,
+  is_system    BOOLEAN      NOT NULL DEFAULT false,    -- system roles can't be deleted
+  PRIMARY KEY (tenant_id, name)
+);
+CREATE TABLE role_permissions (
+  tenant_id    UUID         NOT NULL,
+  role_name    VARCHAR(64)  NOT NULL,
+  permission   VARCHAR(128) NOT NULL,
+  PRIMARY KEY (tenant_id, role_name, permission),
+  FOREIGN KEY (tenant_id, role_name) REFERENCES roles ON DELETE CASCADE
+);
+CREATE TABLE user_role_assignments (
+  tenant_id    UUID         NOT NULL,
+  user_id      UUID         NOT NULL,
+  role_name    VARCHAR(64)  NOT NULL,
+  granted_by   UUID         NOT NULL,
+  granted_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, user_id, role_name)
+);
+```
+
+Permission resolution at request time:
+- JWT carries `roles` claim (resolved at login).
+- Service maps roles → permissions via cached lookup, ONE join.
+- `@PreAuthorize` checks the specific permission, not just the role.
+
+```java
+@PreAuthorize("hasAuthority('PERM_orders:create')")
+public OrderId place(PlaceOrderCommand cmd) { ... }
+```
+
+Why permissions, not roles, in `@PreAuthorize`: roles change. A new `BILLING_VIEWER` role tomorrow shouldn't require code changes — just grant `orders:read` to it.
+
+### Role hierarchy
+
+```java
+@Bean RoleHierarchy roleHierarchy() {
+    return RoleHierarchyImpl.fromHierarchy("""
+        ROLE_ADMIN > ROLE_MEMBER
+        ROLE_MEMBER > ROLE_VIEWER
+        """);
+}
+```
+
+Use sparingly. A flat permission model (above) is usually cleaner than nested roles.
+
+### System vs tenant roles
+
+- **System roles** (`is_system=true`): defined by code, shipped per migration, can't be deleted (`OWNER`, `ADMIN`, `MEMBER`, `VIEWER`).
+- **Tenant-custom roles**: tenants create their own (e.g., `SHIPPING_MANAGER`). Stored in the same table, `is_system=false`.
+- The control-plane / standard tenant has its own role set (`PLATFORM_ADMIN`, `SUPPORT`) — see `java-multi-tenancy`.
+
+### Attribute-Based Access Control (ABAC) — when RBAC alone isn't enough
+
+RBAC is coarse: "anyone with `orders:read` can read any order in their tenant". Real cases need finer:
+- "Sales reps can only see orders in their assigned region."
+- "Customers can only see their own orders."
+- "Approval rights depend on the order amount."
+
+Implement via SpEL or a policy engine:
+
+```java
+@PreAuthorize("hasAuthority('PERM_orders:read') and " +
+              "@orderAccessPolicy.canRead(authentication, #orderId)")
+public OrderView get(@PathVariable OrderId orderId) { ... }
+```
+
+`OrderAccessPolicy` evaluates attributes (region, ownership, amount). Tested in isolation.
+
+### Policy-as-code — when SpEL bloats
+
+When `@PreAuthorize` expressions sprawl, externalize to a policy engine:
+- **Open Policy Agent (OPA)** — Rego policy files, deployed alongside the service or as a sidecar.
+- **AWS Cedar** — embedded library, fast.
+- Spring's `AuthorizationManager` interface gives a clean integration point.
+
+Trigger to switch: when 3+ services share the same policy logic, or when policies are written by non-developers.
+
+### Tenant ownership — always check
+
+Even with RBAC + ABAC, **every** repository query includes the tenant predicate:
+
+```java
+public Optional<Order> findById(TenantId tenant, OrderId id);   // never just byId
+```
+
+A user with `orders:read` in tenant A who passes an order ID from tenant B gets `404`, never `403` (no info leak).
+
+### Permission catalog — `docs/permissions.md`
+
+Living document listing every permission, what it grants, which system roles include it. Updated in the same PR as the controller change that introduces it. Drift between code and catalog = build fail (a Gradle task scans `@PreAuthorize` expressions and diffs against the catalog).
+
+### Audit on role change
+
+Every grant/revoke is a high-value audit event (per `java-data-governance` §5):
+- `actor` = who performed the change
+- `target_user_id`, `tenant_id`, `role_name`
+- `before` / `after`
+- Critical for compliance (SOC2 access reviews).
+
+### Special tokens
+
+- **Service-account tokens** (machine-to-machine) carry scopes, not roles. Different `@PreAuthorize` style: `hasAuthority('SCOPE_internal:reconcile')`.
+- **Support impersonation tokens** carry the support agent's identity + the target tenant + a special `impersonating=true` claim. Logged + audited.
+- **Personal access tokens** (PATs) carry the user's permissions but with a smaller subset (token scope ≤ user's grants).
+
+### Pre-merge checklist (RBAC/ABAC)
+
+- [ ] `@PreAuthorize` uses permissions, not raw role names
+- [ ] New permissions added to `docs/permissions.md`
+- [ ] System roles updated in migration if the base set changed
+- [ ] Tenant predicate in repository alongside the permission check
+- [ ] Audit event emitted on role grant/revoke
+- [ ] Test exercises both the authorized AND denied paths
+
+RBAC/ABAC-specific anti-patterns are folded into §13.
+
 ## 3. CORS — Explicit Allowlist
 
 ```yaml
@@ -264,6 +398,13 @@ Link to `java-data-governance` (when written) for crypto-shred-driven erasure.
 - Decrypting in services that don't need plaintext (over-broad blast radius).
 - "Rotate keys when convenient" — pin a cadence; track in `key_rotation_log`.
 - Treating KMS key deletion as instant.
+- `@PreAuthorize("hasRole('ADMIN')")` instead of permission-based checks.
+- A single hardcoded role in code that "everyone has" — breaks the model.
+- Permissions stored only in the JWT, not in the DB (can't add new perms to existing tokens).
+- Mixing roles and scopes (use roles for users, scopes for machines).
+- Forgetting the tenant predicate after a `hasAuthority` check.
+- Policy logic duplicated across services (extract to OPA/Cedar).
+- Granting `ADMIN` "until we figure out the right roles" — temporary becomes permanent.
 
 ## 14. Pre-Merge Security Checklist
 

@@ -168,6 +168,127 @@ public void handle(PlaceOrderCommand cmd) {
 - Prod default: parent-based + 10% root sampling. Adjust per service based on traffic.
 - Always sample errors (rule-based sampling).
 
+## 4A. OpenTelemetry Baggage
+
+### Trace context vs baggage — different things
+
+- **Trace context** (W3C `traceparent`) — identifies a single trace; auto-propagated by the OTel starter; NOT for business data.
+- **Baggage** (W3C `baggage` header) — arbitrary key/value pairs propagated alongside the trace, available to every service in the chain.
+
+Use baggage for **cross-service business attributes** you want available everywhere: `tenant_id`, `user_id`, `tenant_class`, `feature_flag_set`, `region`.
+
+### When to use baggage
+
+| You want to…                                                  | Use…                                            |
+| ------------------------------------------------------------- | ----------------------------------------------- |
+| Tag every span across all services with `tenant_id`           | Baggage → SpanProcessor → attribute             |
+| Carry user identity across async work                         | Baggage                                         |
+| Route requests based on a header set upstream                 | Baggage at gateway                              |
+| Pass raw data between specific services                       | A dedicated header or RPC param (not baggage)   |
+| Store auth claims                                             | JWT (already does this) — not baggage           |
+| Pass large blobs                                              | NEVER — baggage is plain-text in HTTP headers   |
+
+### Cost — be careful
+
+Baggage is propagated on **every request and Kafka message** in the trace. Every byte adds latency and memory.
+
+Rules:
+- Keep keys short (`tid`, not `current_active_tenant_identifier`).
+- Keep values bounded (`UUID` fine, `email` fine, `serialized JSON object` NEVER).
+- Total baggage size: target < 500 bytes; hard cap 4KB at the gateway.
+- Drop keys that aren't read downstream.
+
+### Set baggage at the edge
+
+The gateway is the right place. Once set, it flows to every downstream span automatically (when the OTel SDK is configured to propagate baggage — default in `spring-boot-starter-actuator` with the OTel agent).
+
+```java
+@Component
+class BaggageFilter extends OncePerRequestFilter {
+    @Override protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws IOException, ServletException {
+        var baggage = Baggage.current().toBuilder()
+            .put("tenant.id",    TenantContext.current().value().toString())
+            .put("tenant.class", TenantContext.currentClass().name())   // small/medium/large
+            .put("user.id",      currentUserIdOrEmpty())
+            .build();
+        try (var scope = baggage.makeCurrent()) {
+            chain.doFilter(req, res);
+        }
+    }
+}
+```
+
+### Promote baggage to span attributes (so it's queryable)
+
+Trace exporters (Tempo, Jaeger, Datadog) usually don't index baggage directly. Promote to span attributes:
+
+```java
+@Bean
+SpanProcessor baggageToAttributeProcessor() {
+    var keys = Set.of("tenant.id", "tenant.class", "user.id");
+    return new SpanProcessor() {
+        public void onStart(Context parent, ReadWriteSpan span) {
+            for (var entry : Baggage.fromContext(parent).asMap().entrySet()) {
+                if (keys.contains(entry.getKey())) {
+                    span.setAttribute(entry.getKey(), entry.getValue().getValue());
+                }
+            }
+        }
+        // onEnd/isStartRequired/isEndRequired defaults...
+    };
+}
+```
+
+Result: every span auto-tagged with `tenant.id` etc. without per-span code.
+
+### Promote baggage to MDC (so it's in logs)
+
+```java
+@Component
+class BaggageToMdcInterceptor implements ChannelInterceptor {
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        Baggage.current().forEach((k, v) -> MDC.put("baggage." + k, v.getValue()));
+        return message;
+    }
+}
+```
+
+Now every log line in every service in the trace has `baggage.tenant.id` — joins logs/traces/metrics on one key.
+
+### Propagation across Kafka
+
+The OTel Kafka instrumentation propagates `traceparent` automatically. **Baggage propagation is opt-in** via `otel.propagators=tracecontext,baggage`. Set in env or `application.yml`:
+
+```yaml
+otel.propagators: tracecontext,baggage
+otel.exporter.otlp.endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+```
+
+Consumer side: same SpanProcessor + MDC interceptor as above; baggage available in consumer too.
+
+### Don't put in baggage
+
+- Secrets (it's in HTTP headers; logged on errors).
+- PII without the same redaction discipline as logs (see §2 redaction).
+- Anything large (>200 bytes per value).
+- Anything that changes per-span — it's request-scoped not span-scoped; use span attributes.
+
+### Validate baggage at the edge
+
+Gateway strips inbound baggage from clients (untrusted). Only the gateway's own filter populates baggage. This prevents:
+- Clients spoofing `tenant.id`.
+- Clients smuggling large baggage to OOM downstream.
+
+### Anti-patterns — refuse
+
+- Baggage values > 200 bytes.
+- Inbound baggage from clients trusted (must be stripped + re-set at gateway).
+- Putting auth claims in baggage (use JWT).
+- Sensitive data in baggage without redaction.
+- 10+ baggage keys (cost compounds).
+- Reading baggage where the data is already in the JWT (duplicate source of truth).
+
 ## 5. Distributed Logs Correlation
 
 Three IDs that travel with the request and let you join logs, traces, and metrics:

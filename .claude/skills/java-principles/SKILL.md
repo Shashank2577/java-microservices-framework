@@ -120,7 +120,96 @@ Wire concretions in `@Configuration` classes.
 - One business event = one structured log line at INFO, with `tenant_id`, `correlation_id`, `event_type`.
 - Domain metrics via Micrometer (`orders.placed.total`, `payments.failed.total`).
 
-## 4. The Test Before Shipping
+## 4. Separation of Concerns
+
+### What SoC means in this framework
+
+Each module/class/method/file owns **one concern**. The test: can you describe what it does in one sentence using "and" zero times?
+
+SoC is what makes hexagonal architecture (`java-architecture`) **legible**, what makes tests fast (`java-testing`), and what makes the framework's other rules enforceable. It's the meta-rule.
+
+### Five concerns, five layers — sharp boundaries
+
+| Concern | Layer | What it does | What it does NOT do |
+| --- | --- | --- | --- |
+| HTTP shape | `api/` | Receive/return JSON, map DTO↔domain | Persist; orchestrate; emit events |
+| Use-case orchestration | `application/` | Compose domain calls; own `@Transactional`; publish via outbox | Validate JSON; serialize; deal with HTTP status codes |
+| Domain logic | `domain/` | Invariants on entities/VOs; pure Java | Know Spring, JPA, Kafka exist |
+| Persistence / messaging / external HTTP | `infrastructure/` | Talk to DB/Kafka/external APIs; translate to/from domain types | Make business decisions |
+| Wiring | `config/` | `@Configuration`, beans, security, observability | Hold any business logic |
+
+If a class crosses these lines, split it. ArchUnit enforces (see `java-architecture` §6).
+
+### Common violations and how to refactor
+
+**Controller doing too much**
+```java
+// WRONG — controller validates business rules, persists, emits, formats
+@PostMapping
+ResponseEntity<?> place(@RequestBody PlaceOrderRequest r) {
+    if (r.lines().isEmpty()) return ResponseEntity.badRequest()...;
+    var order = new Order(...);
+    orderRepo.save(order);
+    kafkaTemplate.send(...);
+    return ResponseEntity.ok(order);
+}
+```
+Fix: validation via `@Valid`, business rules in domain, persist+event in use-case, controller maps DTO + status only.
+
+**God-service**
+```java
+@Service class UserService {
+    /* methods: createUser, sendEmail, generateInvoice, scheduleReminder, exportToCsv */
+}
+```
+Five concerns → five services (or a domain service + four adapters). Each <200 lines, each with one reason to change.
+
+**Anemic domain + fat service**
+A `User` with only getters/setters + a `UserService` with all the rules → put invariants on `User` itself; `UserService` shrinks to orchestration.
+
+### Concern boundaries enforced — the rules
+
+- **One controller per resource**. Not one controller for "API". Splits keep test scope tight.
+- **One use-case per public action.** `PlaceOrderUseCase`, `CancelOrderUseCase` — not `OrderUseCases.placeOrder()` and `OrderUseCases.cancelOrder()` lumped together.
+- **One repository per aggregate root.** Not a generic `BaseRepository<Object>`.
+- **One adapter per outbound port.** `StripePaymentGatewayAdapter`, not `ExternalServicesAdapter`.
+- **One Flyway migration per concern.** Adding a table + adding a column to another = two migrations (see `java-migrations` §2.4).
+- **One commit per coherent change.** See `java-git-workflow` §3 — atomic commits with a single `Intent:` block.
+
+### Frontend SoC mirror
+
+Frontend services in the same org follow the analogous split:
+- View / presentation
+- State / hooks / view-model
+- Use-case (calling backend APIs)
+- API client (translation layer to backend DTOs)
+- Domain types (TypeScript types matching ours)
+
+The principle is identical. Tests align: unit tests on view-models and use-cases; integration tests on API clients; E2E across both stacks.
+
+### The 1-sentence test (apply on every PR)
+
+For each class/file in the diff, finish: "This class ____."
+
+If you used "and", you have a SoC problem. Split before merging.
+
+### Where SoC bends — and why
+
+- DTOs may live close to controllers (`api/dto/`) even though they're "data shape", because their concern is genuinely "HTTP shape" not "domain".
+- Mappers are a tolerated cross-cutter — they exist precisely to translate concerns; keeping them tiny is the discipline.
+- `config/` knows everything; that's its job.
+
+### Anti-patterns — refuse
+
+- Util classes with static business methods (`OrderUtils`)
+- `Manager` / `Helper` suffix without a clear single concern
+- One controller that hits five repositories
+- A service named after a technical thing (`KafkaService`, `JpaService`) instead of a business thing
+- Domain entity with `@Entity` annotations (mixes domain and persistence concerns)
+- A use-case that calls another use-case (sign of missing domain service)
+- "We'll separate this later" — refactoring later costs 10× more
+
+## 5. The Test Before Shipping
 
 Ask, for each module/change:
 1. Could this class change for two unrelated reasons? → split it (SRP).

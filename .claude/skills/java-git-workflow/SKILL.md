@@ -105,30 +105,108 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## 3. Auto-Commit Protocol
 
-Claude **commits automatically** after each completed task when **all** are true:
+### 3.1 Auto-commit conditions (all must hold)
 
-1. The change is one coherent, atomic unit (one logical change, not a grab-bag).
-2. Build is green: `./gradlew :<affected-modules>:test` (or full `./gradlew build` for cross-module changes).
-3. ArchUnit, lint (Spotless/Checkstyle), and Flyway test pass.
-4. No secrets / credentials in the diff (`*.env`, `application-local.yml` with passwords, AWS keys, JWT secrets). Pre-commit `gitleaks` hook is mandatory.
-5. Branch matches issue (§1).
-6. The user hasn't said "don't commit yet" in this turn.
+A commit is auto-created only when **every** condition is true:
 
-**If any condition fails** → don't commit. Report the blocker. Wait.
+1. **Atomic unit** — one coherent logical change. No grab-bags.
+2. **All backend tests green**: `./gradlew :<affected>:check` includes unit, integration (Testcontainers), ArchUnit, contract tests, Flyway migration tests.
+3. **Backend coverage ≥ thresholds**: 95% line / 90% branch on changed code, 98% on `domain`/`application` packages (see `java-code-quality` §7 and `java-testing` §8).
+4. **All frontend tests green** if FE code is in the diff: Vitest/Jest unit + integration, Storybook interaction, MSW-backed API tests, Playwright smoke (≤5 min). See `java-testing` §13.
+5. **Frontend coverage ≥ 95% line / 90% branch** if FE code is in the diff.
+6. **Contract tests green** between FE and BE if either side changed shape.
+7. **No secrets in diff** (`gitleaks` clean).
+8. **Branch matches issue** per §1.
+9. **No new high/critical CVEs** introduced (dep-check).
+10. **No new Spotless/Checkstyle/SpotBugs/Error Prone/NullAway violations**.
+11. **User hasn't said "don't commit yet" in this turn**.
 
-### Per-Task Workflow
+If any fails → don't commit. Report the failure clearly, including which test class / which file / what to fix.
+
+**Never skip hooks. Never `--no-verify`.** A failing hook is a problem to fix, not a problem to bypass.
+
+### 3.2 Full-stack PRs — one PR, end-to-end green
+
+For features that touch both backend and frontend:
+
+- One PR contains: BE code + BE tests + FE code + FE tests + contract updates + OpenAPI spec regenerated.
+- CI runs: BE pipeline + FE pipeline + contract verification + E2E smoke. **All must be green** before merge.
+- The commit message lists both stacks in `Changes:`:
+  ```
+  feat(orders): add cancellation flow
+
+  Intent:
+    ...
+
+  Changes:
+    - BE: CancelOrderUseCase, CancelOrderController, Flyway V004,
+      OrderPlacedConsumer cancellation handling
+    - FE: orders/cancel page, useCancelOrder hook, cancel button
+      component, Playwright spec
+    - Contracts: orders.order.cancelled.v1 schema added; cancel-order
+      REST contract published
+
+  Refs: PROJ-203
+  ```
+
+- Splitting BE-first / FE-later is **not allowed by default**. Reasons:
+  - BE-only releases ship dead code (users can't trigger it).
+  - FE-only releases hit unimplemented BE → 500s.
+  - Reviews lose context (one PR's BE doesn't match the other's FE).
+- Acceptable exceptions (each documented in the PR description):
+  - Pure migration / refactor with no user-visible change.
+  - Internal-only service with no frontend.
+  - Feature behind a flag (`java-config` §6) — then BE can land first, FE second, both behind the flag.
+
+### 3.3 Commit message — append a Test Plan block
+
+Add to the existing commit-message format. Between `Changes:` and `Refs:`:
+
+```
+Test plan:
+  - BE: 12 unit tests; 4 integration tests (Testcontainers Postgres+Kafka);
+    Flyway migration test green
+  - FE: 8 unit tests (Vitest); 3 component interaction tests (Storybook);
+    1 Playwright smoke
+  - Contract: orders-cancellation Pact verified against BE
+  - Coverage: BE 96.4% line / 91.2% branch; FE 95.8% line / 90.6% branch
+```
+
+This makes the audit trail readable: a reviewer can see *what was verified* without re-running CI.
+
+### 3.4 What changes for Claude
+
+When auto-committing, Claude:
+- Runs the full check before committing (`./gradlew check` + `npm test` if FE touched).
+- Includes coverage numbers in the commit message (parsed from JaCoCo XML / Vitest output).
+- Fails loud if coverage drops below threshold — does NOT commit a coverage regression.
+- Refuses to commit "WIP" or red-build commits at all. There is no "save progress" exception.
+
+### 3.5 Anti-patterns — add to existing §6 Destructive Action Policy
+
+- "BE merged, FE coming tomorrow" without a flag
+- Coverage dropped 1% → committed anyway "we'll add tests next sprint"
+- Pre-commit hook bypassed with `--no-verify` because "this is just a typo fix"
+- Commit message says "all tests pass" — claim without evidence. Coverage numbers must be in the message.
+- Test plan block missing for non-trivial changes
+- "Squash on merge" used to hide that intermediate commits were red
+
+### 3.6 Per-Task Workflow
 
 1. Verify branch (§1).
 2. Implement change. Keep it scoped.
-3. Run the narrowest sensible test command. If it touches multiple modules, run `./gradlew build`.
+3. Run `./gradlew :<affected>:check` (+ `npm test` if FE touched). For cross-module work run full `./gradlew check`.
 4. Stage **only the files relevant to this task** (`git add <paths>`). **Never** `git add -A` blindly.
-5. Compose the commit message per §2 with a real Intent block.
+5. Compose the commit message per §2 + §3.3 (Test plan block with coverage numbers).
 6. Commit via HEREDOC:
    ```bash
    git commit -m "$(cat <<'EOF'
    feat(orders-svc): add transactional outbox for OrderPlaced events
 
    Intent:
+     ...
+
+   Test plan:
      ...
 
    Refs: PROJ-142
@@ -138,8 +216,8 @@ Claude **commits automatically** after each completed task when **all** are true
    ```
 7. Report commit SHA + one-line summary to the user.
 
-### Multi-Step Features
-Split into multiple **small commits**, each green, each with its own Intent block. Prefer 5 focused commits over one giant WIP. Never push a red commit.
+### 3.7 Multi-Step Features
+Split into multiple **small commits**, each green, each with its own Intent + Test plan block. Prefer 5 focused commits over one giant WIP. Never push a red commit.
 
 ## 4. Pre-Commit Hooks
 

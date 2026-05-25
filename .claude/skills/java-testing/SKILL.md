@@ -188,17 +188,20 @@ pitest {
     targetClasses.set(listOf("com.example.<service>.application.*", "com.example.<service>.domain.*"))
     mutators.set(listOf("STRONGER"))
     timestampedReports.set(false)
-    mutationThreshold.set(70)
+    mutationThreshold.set(85)
 }
 ```
 Apply to **domain + application** packages (the layers worth mutating). Skip for boilerplate adapters.
 
 ## 8. Coverage Targets
 
-- Line coverage ≥ **80%** on changed code (Jacoco).
-- Branch coverage ≥ **70%** on changed code.
-- Mutation score ≥ **70%** on domain + application packages.
+- Line coverage ≥ **95%** on changed code (Jacoco).
+- Branch coverage ≥ **90%** on changed code.
+- Mutation score ≥ **85%** on domain + application packages.
+- Domain + application packages: ≥ **98%** line coverage (highest bar — this is where logic lives).
 - No coverage targets for `infrastructure.persistence.jpa` mappers, `config`, generated code.
+
+> **The threshold is intentional friction.** 95% is not "QA's goal"; it is the gate that ships. If a class is too hard to test to 95%, the design is wrong — refactor the class, don't lower the bar. Carve-outs (generated code, infra adapter that's a 5-line delegation) get a coverage `excludes` rule in the Gradle config, justified in a comment.
 
 ## 9. Test Naming
 
@@ -357,7 +360,79 @@ For VSCode users, `.devcontainer/devcontainer.json` provisions JDK 21, Gradle, D
 - Real IdP for local dev. Keycloak container or in-process mock.
 - `bootRun` against a shared dev DB. One developer's migration breaks the rest.
 
-## 13. Anti-patterns — Refuse
+## 13. Frontend Test Alignment
+
+### Same standards, different toolchain
+
+Frontend services (React/Vue/Angular/Svelte; SPA or SSR) in this org follow the same testing discipline as backend:
+
+| Discipline | Backend tool | Frontend tool |
+| --- | --- | --- |
+| Unit | JUnit 5 + AssertJ + Mockito | Vitest / Jest + Testing Library |
+| Integration | Testcontainers (Postgres+Kafka) | MSW (Mock Service Worker) + jsdom |
+| Component / "slice" | `@WebMvcTest` | Storybook + interaction tests |
+| Contract (consumer) | Spring Cloud Contract stubs / Pact | Pact (generates contracts the BE verifies) |
+| E2E | Karate / RestAssured + dedicated env | Playwright |
+| Architecture | ArchUnit | dependency-cruiser or Madge for layer enforcement |
+| Mutation | PIT | Stryker |
+
+Both stacks must hit **95% line / 90% branch coverage on changed code**. Same friction.
+
+### Frontend layer rules (analogous to ours)
+
+```
+features/<feature>/
+├── api/              # client wrapper, request/response types
+├── model/            # domain types (TypeScript mirrors of backend types)
+├── usecase/          # business orchestration; pure functions where possible
+├── ui/
+│   ├── components/   # presentational, no API calls
+│   └── pages/        # connects use-cases to components
+└── tests/
+```
+
+Layer dependency direction: `ui → usecase → model`, `api → model`. Enforced via `dependency-cruiser` config.
+
+### Contract testing between FE and BE
+
+- BE publishes OpenAPI on every release → FE generates TypeScript client (`openapi-typescript`).
+- FE drives Pact contracts for the *consumer-driven* parts where BE shape is negotiable.
+- Both checked in CI; PR fails if contracts drift.
+
+### E2E ownership
+
+Playwright suite owned by the team that owns the feature, not by a separate QA team. Lives in the same repo as the feature code (mono-repo) or in a sibling repo with auto-run on either FE or BE PR. Run against a **dedicated test environment** that mirrors prod topology — Testcontainers for BE deps + a real frontend build.
+
+Smoke E2E on every PR (≤5 min). Full E2E nightly + before release.
+
+### Mock service worker (MSW) for FE unit/integration tests
+
+MSW intercepts at the network layer; tests can assert payload shapes match the OpenAPI contract. Use `openapi-msw` to ensure mocks adhere to the same OpenAPI we use for the typed client.
+
+### Tenant context in FE tests
+
+FE tests run as if logged in as a specific tenant. Provide a test fixture that mints a JWT with `tid = test-tenant-acme`. Never default to "no tenant" — that's not a valid state in our framework.
+
+### Coverage tooling
+
+- Vitest/Jest with `coverage.threshold` set globally:
+
+```js
+// vitest.config.ts
+export default {
+  test: {
+    coverage: {
+      provider: 'v8',
+      thresholds: { lines: 95, functions: 95, branches: 90, statements: 95 },
+      exclude: ['**/*.gen.ts', '**/types/**', '**/__mocks__/**'],
+    }
+  }
+}
+```
+
+PR fails if thresholds not met.
+
+## 14. Anti-patterns — Refuse
 
 - H2 / HSQLDB for integration tests. Postgres only via Testcontainers.
 - Mocking `JpaRepository` or `KafkaTemplate` in an integration test (defeats the point).
@@ -367,6 +442,13 @@ For VSCode users, `.devcontainer/devcontainer.json` provisions JDK 21, Gradle, D
 - Hardcoded times / dates without a fixed `Clock`.
 - Asserting log output as the only assertion (use the actual return value or side-effect).
 - Mass-disabled tests with `@Disabled` and no linked issue.
+- FE coverage threshold lower than BE.
+- E2E "owned by QA" — slow feedback, low engagement.
+- Mocking the network with hand-rolled mocks instead of MSW + OpenAPI.
+- Typed FE client maintained by hand instead of generated from OpenAPI.
+- FE test that hits a real BE in CI (use Testcontainers BE or MSW).
+- Skipping E2E "because it's slow" — fix the test, don't skip it.
+- FE/BE in separate repos with no contract testing between them.
 
 ## References
 

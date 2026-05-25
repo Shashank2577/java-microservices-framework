@@ -114,6 +114,146 @@ management:
 
 `spring.jpa.open-in-view=false` is mandatory — OSIV hides N+1 problems and leaks transactions into the web layer.
 
+## Spring Bean Scopes
+
+### The five scopes
+
+| Scope | When to use | When to avoid |
+| --- | --- | --- |
+| `singleton` (default) | 99% of beans — controllers, services, repositories, gateways | Anything that holds per-request state |
+| `prototype` | Stateful helpers; new instance per injection | When singleton with method params would do |
+| `request` | Per-HTTP-request beans (request-scoped properties, audit context) | If a request-scoped `ScopedValue` / `ThreadLocal` works (cheaper) |
+| `session` | Per-user-session state (legacy MVC, rare in stateless REST) | Stateless APIs (our default) — don't use |
+| `application` / custom | Rare; one per ServletContext / custom scope | Almost never |
+
+**Framework default: singleton. Use prototype + scoped proxies only with a written reason.**
+
+### Singleton is not "thread-safe"
+
+A singleton bean is **shared across threads**. Mutating state in a singleton requires explicit synchronization. The right pattern: stateless beans + method-local state + parameters.
+
+```java
+// WRONG — mutable field in a singleton
+@Service class OrderCounter { private int count = 0; void inc() { count++; } }   // race
+
+// RIGHT — return value, no shared state
+@Service class OrderCounter { long inc(long current) { return current + 1; } }
+```
+
+### Prototype — and the singleton-of-prototype trap
+
+```java
+@Component @Scope("prototype")
+class ReportBuilder { /* state */ }
+
+@Service class ReportService {
+    @Autowired ReportBuilder builder;            // INJECTED ONCE — same instance forever
+    void build() { builder.add(...); }           // not a fresh prototype, despite the scope
+}
+```
+
+Fix with a `Provider`:
+
+```java
+@Service
+class ReportService {
+    private final ObjectProvider<ReportBuilder> builders;
+    void build() {
+        ReportBuilder b = builders.getObject();   // fresh each call
+        b.add(...);
+    }
+}
+```
+
+### Request scope — only when truly per-request
+
+```java
+@Component
+@Scope(value = WebApplicationContext.SCOPE_REQUEST, proxyMode = TARGET_CLASS)
+class RequestAuditContext {
+    private final List<String> events = new ArrayList<>();
+    void record(String e) { events.add(e); }
+    List<String> events() { return List.copyOf(events); }
+}
+```
+
+The scoped proxy lets you inject it into a singleton; the proxy looks up the current request's bean on each call.
+
+**But for this framework, prefer:**
+- `TenantContext` (ScopedValue / ThreadLocal) for tenant
+- MDC for log fields
+- A simple `Map` in a request attribute for ad-hoc per-request data
+
+Request-scoped beans cost a proxy + bean-creation per request. Avoid unless the alternative is uglier.
+
+### `ScopedValue` over `ThreadLocal` (JDK 21)
+
+```java
+public final class TenantContext {
+    private static final ScopedValue<TenantId> CURRENT = ScopedValue.newInstance();
+    public static <R> R callWith(TenantId t, Callable<R> c) throws Exception {
+        return ScopedValue.where(CURRENT, t).call(c::call);
+    }
+    public static TenantId current() { return CURRENT.get(); }
+}
+```
+
+Why `ScopedValue` (see `java-multi-tenancy`):
+- Immutable inside the scope — no leak risk.
+- Propagates correctly across virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`).
+- No `.remove()` boilerplate / leak bug surface.
+
+`ThreadLocal` only when you need mutability or pre-JDK21 compatibility. Always pair with try/finally for cleanup.
+
+### Scope and virtual threads
+
+Virtual threads share the same `Thread` heuristic as platform threads for `ThreadLocal`. `request`-scoped beans work — Spring binds via thread context. **But** if you spawn work via `CompletableFuture.supplyAsync` on a default executor, request scope is lost.
+
+Fix: a `TaskDecorator` that copies the request attributes:
+
+```java
+@Bean
+TaskDecorator requestAndMdcTaskDecorator() {
+    return runnable -> {
+        var ctx = RequestContextHolder.getRequestAttributes();
+        var mdc = MDC.getCopyOfContextMap();
+        return () -> {
+            RequestContextHolder.setRequestAttributes(ctx);
+            if (mdc != null) MDC.setContextMap(mdc);
+            try { runnable.run(); } finally {
+                RequestContextHolder.resetRequestAttributes();
+                MDC.clear();
+            }
+        };
+    };
+}
+```
+
+Register on every `AsyncTaskExecutor` and the Spring MVC virtual-thread executor.
+
+### Scope and bean lifecycle
+
+- Singleton: `@PostConstruct` once at startup; `@PreDestroy` at shutdown. Beware long startup work — it blocks readiness.
+- Prototype: Spring does **not** call `@PreDestroy`; you're responsible for cleanup. Don't put resource-holding logic in prototypes.
+- Request: lifecycle = HTTP request.
+
+### Custom scopes
+
+Possible (e.g., `tenant` scope) but rarely worth the complexity. Prefer:
+- `ScopedValue` + a request filter that sets it (see `java-multi-tenancy`).
+
+If you genuinely need a custom scope, register a `Scope` bean and `proxyMode = TARGET_CLASS`. Document with an ADR.
+
+### Anti-patterns — refuse
+
+- Mutable fields in singleton beans without synchronization
+- Injecting a prototype into a singleton without `ObjectProvider`
+- Request-scoped bean accessed from a `@Scheduled` job (no request → NPE)
+- Custom scopes when `ScopedValue` would do
+- `ThreadLocal.set` without a `try/finally remove` (leaks across requests on pooled threads)
+- Session scope in a stateless REST API
+- `@PreDestroy` on a prototype bean (it won't fire)
+
 ## Dependency Hygiene
 
 ### 1. Version catalog is the only place versions live

@@ -124,13 +124,13 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             element = "BUNDLE"
-            limit { counter = "LINE";   minimum = "0.80".toBigDecimal() }
-            limit { counter = "BRANCH"; minimum = "0.70".toBigDecimal() }
+            limit { counter = "LINE";   minimum = "0.95".toBigDecimal() }
+            limit { counter = "BRANCH"; minimum = "0.90".toBigDecimal() }
         }
         rule {
             element = "PACKAGE"
             includes = listOf("com.example.*.domain.*", "com.example.*.application.*")
-            limit { counter = "LINE"; minimum = "0.90".toBigDecimal() }
+            limit { counter = "LINE"; minimum = "0.98".toBigDecimal() }
         }
     }
 }
@@ -138,6 +138,8 @@ tasks.check { dependsOn("jacocoTestCoverageVerification") }
 ```
 
 Apply higher bar to domain + application layers (testable by design). Exclude generated code, mappers, simple DTOs.
+
+> Coverage thresholds are **95% line / 90% branch** on changed code, **98% line on domain + application packages**. This is intentional friction: every line is tested or there's a written reason in the PR description.
 
 ## 8. PIT Mutation
 
@@ -148,7 +150,7 @@ pitest {
     targetClasses.set(listOf("com.example.*.domain.*", "com.example.*.application.*"))
     mutators.set(listOf("STRONGER"))
     threads.set(4)
-    mutationThreshold.set(70)
+    mutationThreshold.set(85)
     timestampedReports.set(false)
 }
 ```
@@ -188,15 +190,70 @@ Use **Renovate** for richer config (grouped updates, schedule, automerge for min
 - Minor/major batched, reviewed weekly.
 - Security advisories take priority — labeled and escalated.
 
-## 11. JavaDoc (where it earns its place)
+## 11. Javadoc — Where It Earns Its Place
 
-- **Public API of building blocks and starters**: Javadoc required on every public type and method.
-- **Use-cases (application layer)**: short Javadoc stating intent + side effects.
-- **Domain entities**: comments only for invariants that aren't obvious from code.
-- **Controllers**: covered by OpenAPI `@Operation`, not duplicated in Javadoc.
-- **Internal classes**: no Javadoc by default.
+Javadoc is documentation, not decoration. It earns its place on contracts a caller relies on; everywhere else it's noise that rots. Treat it like code: reviewed, linted, and built.
 
-Goal: 0 Javadoc warnings; `javadoc` task green in build.
+### When to Javadoc
+
+- **Public API of starters and building-blocks**: every public type and method. Treat these as you'd treat a library API — consumers can't read your source easily.
+- **Application use-cases**: short Javadoc on the use-case class stating intent + transactional behavior + side effects. Caller behavior matters; surprises here cause incidents.
+- **Domain entities and value objects**: comment only invariants not obvious from code. Constructor preconditions. State transitions.
+- **Ports (interfaces)**: contract documentation — preconditions, postconditions, exceptions thrown. The interface is the contract.
+- **Configuration properties**: every `@ConfigurationProperties` record field — what it means, valid range, default. Ops reads these.
+- **ArchUnit rules**: comment the WHY (which class of bug this prevents). A rule without a reason gets deleted the first time it inconveniences someone.
+
+### When NOT to Javadoc
+
+- **Controllers**: documented via OpenAPI annotations (`@Operation`, `@ApiResponse`, `@Schema`). Don't duplicate.
+- **Spring `@Configuration` classes**: bean methods don't need docs unless wiring is non-obvious.
+- **Test classes**: test method names should describe behavior; no Javadoc.
+- **Mappers (MapStruct generated)**: skip.
+- **DTO records**: the field names + `@Schema(description=...)` for OpenAPI cover it.
+- **Internal helper classes**: skip; if the name + signature aren't clear, rename.
+
+### Javadoc anti-patterns
+
+- `@param order The order` — restating the name, zero info. Delete.
+- `Calls X to do Y.` — describing the body, not the contract. Document behavior, not implementation.
+- Wall-of-text Javadoc on something a reader could grok from 5 lines of code. Be terse.
+- `@deprecated` without a `@deprecated <reason; migration path>` block.
+
+### Style
+
+- Sentence case, full stops.
+- `<p>` between paragraphs (mandatory in HTML 4 doctype Javadoc still uses).
+- `{@code}` for identifiers; `{@link}` for cross-refs.
+- One blank line between summary sentence and body.
+- `@since` for every public API in a library.
+- `@throws` on every checked exception and on common runtime exceptions the caller might expect (`IllegalArgumentException`, `IllegalStateException`).
+
+### Build gates
+
+- `javadoc` task green on `:platform:*` modules. Warnings fail the build.
+- Public APIs of building-blocks/starters: missing Javadoc = build fail (configure `-Xdoclint:all,-missing` everywhere else, full `-Xdoclint:all` on platform modules).
+- Generate site Javadoc as part of CI; publish to GitHub Pages or Backstage TechDocs.
+
+### Example
+
+```java
+/**
+ * Place a customer order.
+ *
+ * <p>Acquires a Postgres advisory lock on the customer id, validates inventory
+ * via {@link InventoryGateway}, persists the order, and emits an
+ * {@code OrderPlaced} event via the outbox. The entire operation is one
+ * transaction; downstream side effects (Kafka publish) happen after commit
+ * by the outbox publisher.
+ *
+ * @param cmd the command; lines must be non-empty and qty &gt; 0
+ * @return the new order's id
+ * @throws InventoryReservationException if any line cannot be reserved
+ * @throws IllegalArgumentException      if the command fails validation
+ */
+@Transactional
+public OrderId place(PlaceOrderCommand cmd) { ... }
+```
 
 ## 12. ADRs — Architecture Decision Records
 
@@ -379,7 +436,7 @@ repos:
 - [ ] No new Spotless reformatting.
 - [ ] No new Checkstyle / SpotBugs / Error Prone violations.
 - [ ] No new High/Critical CVEs from dep-check.
-- [ ] Coverage at or above threshold.
+- [ ] Coverage ≥ 95% line / 90% branch / 98% domain.
 - [ ] No new secrets (gitleaks clean).
 - [ ] Renovate PR list reviewed.
 - [ ] If architectural change → ADR added.

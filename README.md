@@ -21,7 +21,7 @@ This repo encodes the opinions a senior team would write on a whiteboard once an
 ├── CLAUDE.md                                 # the operating index — start here
 ├── .claude/
 │   └── skills/
-│       ├── java-*                            # 26 framework skills (the opinions)
+│       ├── java-*                            # 28 framework skills (the opinions)
 │       └── lib/jabrena/                      # 41 ported reference skills (Apache-2.0)
 ├── .gitignore
 ├── LICENSE                                   # Apache-2.0
@@ -29,15 +29,15 @@ This repo encodes the opinions a senior team would write on a whiteboard once an
 ```
 
 - **`CLAUDE.md`** — the operating index. Lists the 26 skills, the 24 non-negotiables, and the project-details placeholders you fill in for your specific project.
-- **`.claude/skills/java-*`** — the 26 framework skills. Each is a focused `SKILL.md` covering one concern (DB design, security, multi-tenancy, etc.). ~150–600 lines each, ~7,800 lines total.
+- **`.claude/skills/java-*`** — the 28 framework skills. Each is a focused `SKILL.md` covering one concern (DB design, security, multi-tenancy, etc.). ~150–600 lines each, ~7,800 lines total.
 - **`.claude/skills/lib/jabrena/`** — 41 ported skills from [jabrena/cursor-rules-java](https://github.com/jabrena/cursor-rules-java) (Apache-2.0). Encyclopedic Java/Spring patterns with good/bad code examples. Our framework skills link to these for deep dives.
 
 ---
 
-## The 26 framework skills
+## The 28 framework skills
 
-**Foundation** — `java-stack`, `java-principles`, `java-architecture`
-**Patterns** — `java-patterns-gof`, `java-patterns-microservices`, `java-patterns-database`
+**Foundation** — `java-stack`, `java-principles`, `java-ddd`, `java-architecture`
+**Patterns** — `java-patterns-gof`, `java-patterns-microservices`, `java-patterns-database`, `java-rules-engine`
 **Runtime** — `java-async-sync-jobs`, `java-multi-tenancy`, `java-messaging`, `java-migrations`, `java-testing`
 **Edge / API** — `java-api-design`, `java-api-errors`, `java-security`, `java-api-gateway`
 **Cross-cutting** — `java-observability`, `java-config`, `java-caching`, `java-container-deploy`, `java-code-quality`
@@ -57,11 +57,12 @@ See [`CLAUDE.md`](./CLAUDE.md) for the full skill map and which skill to invoke 
 4. **Outbox pattern** for every "DB write + event publish". Idempotent consumers with inbox.
 5. No EAGER, no OSIV, no H2, no `ddl-auto=update`. Testcontainers for integration tests.
 6. **RFC 7807 Problem Details** is the single error contract.
-7. Three observability pillars wired: JSON logs + MDC, Micrometer + Prometheus, OpenTelemetry.
-8. **OAuth2 RS + JWT with `tid` claim**; AES-GCM at-rest with KMS-wrapped tenant DEKs.
+7. Three observability pillars wired: JSON logs + MDC, Micrometer + Prometheus, OpenTelemetry + baggage.
+8. **OAuth2 RS + JWT with `tid` claim**; AES-GCM at-rest with KMS-wrapped tenant DEKs; RBAC via permissions (not roles), ABAC for fine-grained.
 9. **One gateway** owns auth, CORS, rate limit, canary — never duplicated in services.
-10. **Quality gates block merge**: Spotless, NullAway, dep-check, JaCoCo, gitleaks.
-11. **Every branch ties to an issue. Every commit has an `Intent:` block.** Claude auto-commits after each green task.
+10. **Coverage ≥ 95% line / 90% branch / 98% domain.** End-to-end green commits (BE+FE+contracts) — no BE-then-FE-tomorrow splits.
+11. **Quality gates block merge**: Spotless, NullAway, dep-check, JaCoCo, gitleaks, ArchUnit.
+12. **Every branch ties to an issue. Every commit has an `Intent:` block + Test plan + coverage numbers.** Claude auto-commits after each end-to-end-green task.
 
 Full list in [`CLAUDE.md`](./CLAUDE.md#non-negotiables-the-short-list).
 
