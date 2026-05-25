@@ -1,0 +1,37 @@
+# Local clone of upstream skill source (used for porting; never committed).
+# Re-clone with:
+#   git clone --depth 1 https://github.com/jabrena/cursor-rules-java.git .reference/cursor-rules-java
+.reference/
+
+# oh-my-claudecode local state (per-machine, not framework content)
+.omc/
+
+# Claude Code session local state
+.claude/projects/
+.claude/settings.local.json
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+
+# Local env overrides (never committed)
+.env
+.env.local
+application-local.yml
+
+# Heap / thread dumps
+*.hprof
+*.dump

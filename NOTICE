@@ -1,0 +1,18 @@
+Java Microservices Framework
+Copyright 2026 Shashank Saxena
+
+This product includes software developed by Shashank Saxena.
+
+------------------------------------------------------------
+Third-party content
+------------------------------------------------------------
+
+This product bundles a curated subset of content from:
+
+    cursor-rules-java
+    Copyright Juan Antonio Breña Moral
+    https://github.com/jabrena/cursor-rules-java
+    Licensed under the Apache License, Version 2.0
+
+The bundled content lives under `.claude/skills/lib/jabrena/`
+and retains the original LICENSE alongside it.
