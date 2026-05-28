@@ -12,6 +12,13 @@ This skill defines the framework's **primitives** for handling regulated data: P
 - **This skill is**: the framework's primitives for compliance — PII inventory, retention, erasure, audit, residency.
 - **This skill is not**: a SOC2/ISO/HIPAA checklist. Mapping these primitives to your control framework is the GRC team's job. The code here gives them something to map *to*.
 
+### Audit log vs project vault — different things
+
+- **Audit log** (this skill, §5) — production events for **compliance**. Append-only, tamper-evident, hash-chained, in the application DB, written by application code at runtime. Auditors look here.
+- **Project vault** (`java-vault`, `.vault/`) — engineering memory for **the team**. Editable markdown, in git, written by Claude on every commit, opened in Obsidian. Teammates look here.
+
+Do not conflate. The vault is *not* an audit substitute (it's editable). The audit log is *not* a knowledge base (it's row-shaped). Use both.
+
 ## 2. PII Classification
 
 Annotation `@Pii(category)` on entity and DTO fields:

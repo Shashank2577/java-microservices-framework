@@ -119,7 +119,8 @@ A commit is auto-created only when **every** condition is true:
 8. **Branch matches issue** per §1.
 9. **No new high/critical CVEs** introduced (dep-check).
 10. **No new Spotless/Checkstyle/SpotBugs/Error Prone/NullAway violations**.
-11. **User hasn't said "don't commit yet" in this turn**.
+11. **Vault updated** — today's `.vault/sessions/YYYY-MM-DD.md` has this commit appended; any new component/decision/finding/debugging/drift notes created; drift detection run (see `java-vault` §5, §7). Vault updates are staged in the same commit.
+12. **User hasn't said "don't commit yet" in this turn**.
 
 If any fails → don't commit. Report the failure clearly, including which test class / which file / what to fix.
 

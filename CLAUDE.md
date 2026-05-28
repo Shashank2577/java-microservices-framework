@@ -2,9 +2,10 @@
 
 This repository builds **Java 21 + Spring Boot 3.4 + PostgreSQL + Kafka** microservices following a strict, well-architected recipe. This file is intentionally short. The framework is broken into focused skills under `.claude/skills/`. **Invoke the relevant skill before doing the corresponding work** — it carries the authoritative rules and examples.
 
-The framework has two layers:
-- **`.claude/skills/java-*`** — our **28 framework skills**. Opinions, conventions, and rules specific to this repo (multi-tenancy with control-plane tenant, DDD strategic+tactical, outbox-required, ArchUnit layering, RBAC + ABAC, the `Intent:` commit format, RFC 7807 errors, 95% coverage, end-to-end-green commits, Backstage catalog, etc.).
+The framework has **three layers**:
+- **`.claude/skills/java-*`** — our **29 framework skills**. Opinions, conventions, and rules specific to this repo (multi-tenancy with control-plane tenant, DDD strategic+tactical, outbox-required, ArchUnit layering, RBAC + ABAC, the `Intent:` commit format, RFC 7807 errors, 95% coverage, end-to-end-green commits, Backstage catalog, project vault, etc.).
 - **`.claude/skills/lib/jabrena/`** — 41 ported skills from [jabrena/cursor-rules-java](https://github.com/jabrena/cursor-rules-java) (Apache-2.0). Encyclopedic Java/Spring patterns with good/bad code examples. Our framework skills link to these for deep dives.
+- **`.vault/`** — team-shared project memory in Obsidian-compatible markdown. Committed to git. Updated by Claude on every commit and at session end. Sessions, decisions, people, components, tickets, findings, debugging postmortems, drift detections, BRD/PRD mirrors. See `java-vault` skill.
 
 ---
 
@@ -12,14 +13,17 @@ The framework has two layers:
 
 For every task, Claude follows this loop:
 
+0. **Session start** — read `.vault/INDEX.md`, the last 7 days of `.vault/sessions/`, and any `.vault/drift/` items with `status: open`. This is the team's institutional memory — every session starts informed by it. See `java-vault`.
 1. **Pre-flight** — invoke `java-git-workflow`: confirm the issue ID, create or switch to the correct branch.
-2. **Understand scope** — invoke the framework skills relevant to the change (see map below). When a framework skill points to a `lib/jabrena/...` reference, read that too if the work is non-trivial.
-3. **Design before code** — for new entities/queries always invoke `java-patterns-database`; for new services or modules invoke `java-architecture`; for new endpoints invoke `java-api-design` + `java-api-errors`; for new events/messaging invoke `java-messaging`; for compliance touchpoints invoke `java-data-governance`.
+2. **Understand scope** — invoke the framework skills relevant to the change (see map below). When a framework skill points to a `lib/jabrena/...` reference, read that too if the work is non-trivial. When touching a component, read its `.vault/components/<name>.md`.
+3. **Design before code** — for new entities/queries always invoke `java-patterns-database`; for new services or modules invoke `java-architecture`; for new endpoints invoke `java-api-design` + `java-api-errors`; for new events/messaging invoke `java-messaging`; for compliance touchpoints invoke `java-data-governance`. Strategic boundary work invokes `java-ddd`.
 4. **Implement** — small, focused changes following the skill rules. Tests alongside.
 5. **Verify** — run `./gradlew :<module>:check` (or full build for cross-module). ArchUnit, coverage, dep-check, Spotless, gitleaks all included.
-6. **Auto-commit** — per `java-git-workflow` §3, commit each green coherent unit with a mandatory `Intent:` block in the message.
+6. **Update the vault** — append to today's `.vault/sessions/YYYY-MM-DD.md`; create/update component, decision, finding, debugging notes as appropriate; run drift detection (per `java-vault` §7); flag open drift items.
+7. **Auto-commit** — per `java-git-workflow` §3, commit each green coherent unit with a mandatory `Intent:` block + Test plan + coverage numbers; vault changes staged in the same commit.
+8. **Session end** — write a summary paragraph at the bottom of today's session note: what was accomplished, what remains, what surprised us, what needs human input.
 
-**Never act outside this loop. Never skip the skill that applies.**
+**Never act outside this loop. Never skip the skill that applies. Never commit without updating the vault.**
 
 ---
 
@@ -80,9 +84,10 @@ For every task, Claude follows this loop:
 | Plan DR, RPO/RTO, backups/PITR, runbooks, on-call                   | `java-ops-dr-runbooks`             |
 | Handle PII, GDPR DSAR, retention, tamper-evident audit log          | `java-data-governance`             |
 
-### Workflow
+### Workflow & Memory
 | When…                                                               | Skill                              |
 | ------------------------------------------------------------------- | ---------------------------------- |
+| Session start, every commit, every decision/finding/drift/debugging | `java-vault` **(mandatory)** — read at start, write per commit, drift-check before merge |
 | Start any task, before any code change, after each unit of work     | `java-git-workflow` **(mandatory)**|
 
 Multiple skills usually apply to one task. Read all that fit.
@@ -102,9 +107,21 @@ Each framework skill above ends with a `## Reference` section linking the releva
 ```
 java/
 ├── CLAUDE.md                                 # this index
+├── .vault/                                   # team-shared project memory (Obsidian-compatible)
+│   ├── INDEX.md, README.md
+│   ├── _meta/                                # tag taxonomy, graph hints, note templates
+│   ├── sessions/                             # daily session logs
+│   ├── decisions/                            # smaller-than-ADR engineering decisions
+│   ├── people/                               # one note per teammate (incl. claude)
+│   ├── components/                           # one note per service/module
+│   ├── tickets/                              # GitHub issue / Jira mirrors
+│   ├── findings/                             # gotchas, surprising library behavior
+│   ├── debugging/                            # incident postmortems
+│   ├── drift/                                # commits that contradicted decisions
+│   └── brd-prd/                              # BRD/PRD mirrors
 ├── .claude/
 │   └── skills/
-│       ├── java-*                            # 28 framework skills (our opinions)
+│       ├── java-*                            # 29 framework skills (our opinions)
 │       └── lib/jabrena/                      # 41 ported reference skills (Apache-2.0)
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -163,8 +180,10 @@ These are framework laws. Skill files explain *how*; this list is *what*.
 24. **Every service declares an RPO/RTO tier**; PITR enabled; quarterly restore drill; runbook per alert. (`java-ops-dr-runbooks`)
 25. **PII annotated (`@Pii`).** Append-only audit log with hash chain. Retention policies as code. Per-tenant region pinning. (`java-data-governance`)
 26. **End-to-end green commit.** Backend + frontend + contracts all green before a commit lands. Test plan + coverage numbers in every commit message. No BE-then-FE-tomorrow splits without a feature flag. (`java-git-workflow` §3, `java-testing` §13)
-27. **Every branch ties to an issue. Every commit has an `Intent:` block. Claude auto-commits after each end-to-end-green task.** (`java-git-workflow`)
-28. **No destructive Git ops without explicit user approval.** (`java-git-workflow` §6)
+27. **Project vault is updated on every commit.** Session log entry per commit; component/decision/finding/debugging/drift notes created as they happen; session-end summary at the bottom of today's session note. Vault changes staged in the same commit as the code. (`java-vault`)
+28. **Drift detection.** Before modifying a component, Claude reads `.vault/components/<name>.md`. If the change contradicts the documented shape, a `.vault/drift/` note is created and the user flagged. Open drift items block merge. (`java-vault` §7)
+29. **Every branch ties to an issue. Every commit has an `Intent:` block. Claude auto-commits after each end-to-end-green task.** (`java-git-workflow`)
+30. **No destructive Git ops without explicit user approval.** (`java-git-workflow` §6)
 
 ---
 
