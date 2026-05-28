@@ -1,5 +1,9 @@
 # Java Microservices Framework — Claude Code Skills
 
+[![CI](https://github.com/Shashank2577/java-microservices-framework/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Shashank2577/java-microservices-framework/actions/workflows/ci.yml)
+[![Validate framework](https://github.com/Shashank2577/java-microservices-framework/actions/workflows/validate-framework.yml/badge.svg?branch=main)](https://github.com/Shashank2577/java-microservices-framework/actions/workflows/validate-framework.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 An opinionated, production-grade recipe for building **Java 21 + Spring Boot 3.4 + PostgreSQL + Kafka** microservices, packaged as [Claude Code](https://claude.com/claude-code) skills so that Claude can read it, follow it, and enforce it on every change.
 
 This repository is **not** the application. It is the *framework*: a set of rules, conventions, and reference implementations that any Java microservices project can adopt by dropping its contents into the project root.
