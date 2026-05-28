@@ -1,0 +1,82 @@
+name: Validate framework
+
+on:
+  pull_request:
+    paths:
+      - '.claude/skills/**'
+      - '.vault/**'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'tools/validate_framework.py'
+      - '.github/workflows/validate-framework.yml'
+  push:
+    branches: [main]
+  schedule:
+    # Weekly drift / link rot check on Mondays at 09:00 UTC.
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  python-validator:
+    name: Cross-skill consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run framework validator
+        run: python3 tools/validate_framework.py
+
+  link-check:
+    name: Markdown link check (lychee)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Ignore localhost / private IPs / placeholder repos; we'll let the
+          # python validator catch unresolved `lib/jabrena/...` paths since
+          # lychee can't resolve them as wiki-style anchors.
+          args: >-
+            --no-progress
+            --max-redirects 5
+            --include-fragments
+            --accept 200,206,429
+            --exclude-path '.git'
+            --exclude-path '.reference'
+            --exclude-path '.omc'
+            --exclude '^http(s)?://localhost'
+            --exclude '^http(s)?://127\.'
+            './**/*.md'
+          fail: true
+
+  markdown-style:
+    name: Markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: markdownlint-cli2
+        uses: DavidAnson/markdownlint-cli2-action@v17
+        with:
+          globs: |
+            **/*.md
+            !.reference/**
+            !.omc/**
+            !.claude/skills/lib/jabrena/**
+          config: .markdownlint.jsonc
+
+  vault-frontmatter:
+    name: Vault frontmatter schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: frontmatter-json-schema
+        uses: mheap/frontmatter-json-schema-action@v1
+        with:
+          schema_path: tools/schemas/vault-note.schema.json
+          paths: '.vault/**/*.md'
+        continue-on-error: true   # validator is the authoritative gate; this is a supplement

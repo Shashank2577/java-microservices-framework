@@ -363,5 +363,6 @@ Every service module: `implementation(platform(project(":platform:build-platform
 
 ## Reference
 
-- `.claude/skills/lib/jabrena/110-java-maven-best-practices/references/110-java-maven-best-practices.md` — Maven-centric; the principles (BOM usage, no version literals, transitive hygiene) transfer to Gradle catalog/BOM.
-- `.claude/skills/lib/jabrena/111-java-maven-dependencies/references/111-java-maven-dependencies.md` — deeper dependency management patterns; same principles apply.
+- [Gradle 8 user manual — version catalog](https://docs.gradle.org/8.10/userguide/platforms.html)
+- [Spring Boot dependency management plugin](https://docs.spring.io/dependency-management-plugin/docs/current/reference/html/)
+- `.claude/skills/lib/jabrena/301-frameworks-spring-boot-core/references/301-frameworks-spring-boot-core.md` — `@ConfigurationProperties`, `@Validated`, conditional config; the bean scopes section above is the framework-level opinion on top of these patterns.

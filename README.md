@@ -21,7 +21,7 @@ This repo encodes the opinions a senior team would write on a whiteboard once an
 ├── CLAUDE.md                                 # the operating index — start here
 ├── .claude/
 │   └── skills/
-│       ├── java-*                            # 29 framework skills (the opinions)
+│       ├── java-*                            # 32 framework skills (the opinions)
 │       └── lib/jabrena/                      # 41 ported reference skills (Apache-2.0)
 ├── .gitignore
 ├── LICENSE                                   # Apache-2.0
@@ -29,12 +29,12 @@ This repo encodes the opinions a senior team would write on a whiteboard once an
 ```
 
 - **`CLAUDE.md`** — the operating index. Lists the 26 skills, the 24 non-negotiables, and the project-details placeholders you fill in for your specific project.
-- **`.claude/skills/java-*`** — the 29 framework skills. Each is a focused `SKILL.md` covering one concern (DB design, security, multi-tenancy, etc.). ~150–600 lines each, ~7,800 lines total.
+- **`.claude/skills/java-*`** — the 32 framework skills. Each is a focused `SKILL.md` covering one concern (DB design, security, multi-tenancy, etc.). ~150–600 lines each, ~7,800 lines total.
 - **`.claude/skills/lib/jabrena/`** — 41 ported skills from [jabrena/cursor-rules-java](https://github.com/jabrena/cursor-rules-java) (Apache-2.0). Encyclopedic Java/Spring patterns with good/bad code examples. Our framework skills link to these for deep dives.
 
 ---
 
-## The 29 framework skills
+## The 32 framework skills
 
 **Foundation** — `java-stack`, `java-principles`, `java-ddd`, `java-architecture`
 **Patterns** — `java-patterns-gof`, `java-patterns-microservices`, `java-patterns-database`, `java-rules-engine`
@@ -44,6 +44,7 @@ This repo encodes the opinions a senior team would write on a whiteboard once an
 **Integrations** — `java-integration-webhooks`, `java-integration-storage`, `java-integration-notifications`
 **Ops & Governance** — `java-ops-dr-runbooks`, `java-data-governance`
 **Workflow & Memory** — `java-git-workflow`, `java-vault`
+**Oversight & meta** — `java-adversarial-drift`, `java-human-review-ritual`, `java-framework-metrics`
 
 See [`CLAUDE.md`](./CLAUDE.md) for the full skill map and which skill to invoke for which task.
 

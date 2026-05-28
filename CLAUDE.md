@@ -3,7 +3,7 @@
 This repository builds **Java 21 + Spring Boot 3.4 + PostgreSQL + Kafka** microservices following a strict, well-architected recipe. This file is intentionally short. The framework is broken into focused skills under `.claude/skills/`. **Invoke the relevant skill before doing the corresponding work** — it carries the authoritative rules and examples.
 
 The framework has **three layers**:
-- **`.claude/skills/java-*`** — our **29 framework skills**. Opinions, conventions, and rules specific to this repo (multi-tenancy with control-plane tenant, DDD strategic+tactical, outbox-required, ArchUnit layering, RBAC + ABAC, the `Intent:` commit format, RFC 7807 errors, 95% coverage, end-to-end-green commits, Backstage catalog, project vault, etc.).
+- **`.claude/skills/java-*`** — our **32 framework skills**. Opinions, conventions, and rules specific to this repo (multi-tenancy with control-plane tenant, DDD strategic+tactical, outbox-required, ArchUnit layering, RBAC + ABAC, the `Intent:` commit format, RFC 7807 errors, 95% coverage, end-to-end-green commits, Backstage catalog, project vault, etc.).
 - **`.claude/skills/lib/jabrena/`** — 41 ported skills from [jabrena/cursor-rules-java](https://github.com/jabrena/cursor-rules-java) (Apache-2.0). Encyclopedic Java/Spring patterns with good/bad code examples. Our framework skills link to these for deep dives.
 - **`.vault/`** — team-shared project memory in Obsidian-compatible markdown. Committed to git. Updated by Claude on every commit and at session end. Sessions, decisions, people, components, tickets, findings, debugging postmortems, drift detections, BRD/PRD mirrors. See `java-vault` skill.
 
@@ -90,6 +90,13 @@ For every task, Claude follows this loop:
 | Session start, every commit, every decision/finding/drift/debugging | `java-vault` **(mandatory)** — read at start, write per commit, drift-check before merge |
 | Start any task, before any code change, after each unit of work     | `java-git-workflow` **(mandatory)**|
 
+### Oversight & meta
+| When…                                                               | Skill                              |
+| ------------------------------------------------------------------- | ---------------------------------- |
+| Weekly (scheduled) and pre-release — find drift the productive session missed | `java-adversarial-drift` |
+| Daily / per-PR / weekly / quarterly human-in-the-loop checkpoints   | `java-human-review-ritual`         |
+| Defining or evaluating whether the framework itself is working       | `java-framework-metrics`           |
+
 Multiple skills usually apply to one task. Read all that fit.
 
 ---
@@ -121,7 +128,7 @@ java/
 │   └── brd-prd/                              # BRD/PRD mirrors
 ├── .claude/
 │   └── skills/
-│       ├── java-*                            # 29 framework skills (our opinions)
+│       ├── java-*                            # 32 framework skills (our opinions)
 │       └── lib/jabrena/                      # 41 ported reference skills (Apache-2.0)
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -182,8 +189,11 @@ These are framework laws. Skill files explain *how*; this list is *what*.
 26. **End-to-end green commit.** Backend + frontend + contracts all green before a commit lands. Test plan + coverage numbers in every commit message. No BE-then-FE-tomorrow splits without a feature flag. (`java-git-workflow` §3, `java-testing` §13)
 27. **Project vault is updated on every commit.** Session log entry per commit; component/decision/finding/debugging/drift notes created as they happen; session-end summary at the bottom of today's session note. Vault changes staged in the same commit as the code. (`java-vault`)
 28. **Drift detection.** Before modifying a component, Claude reads `.vault/components/<name>.md`. If the change contradicts the documented shape, a `.vault/drift/` note is created and the user flagged. Open drift items block merge. (`java-vault` §7)
-29. **Every branch ties to an issue. Every commit has an `Intent:` block. Claude auto-commits after each end-to-end-green task.** (`java-git-workflow`)
-30. **No destructive Git ops without explicit user approval.** (`java-git-workflow` §6)
+29. **Weekly adversarial-drift review.** A separate read-only Claude session reviews vault-vs-code drift; report triaged by a human. Outputs `.vault/drift/_adversarial-YYYY-MM-DD.md`. (`java-adversarial-drift`)
+30. **Human-in-the-loop ritual on a calendar.** Per-PR review + daily 5 min + weekly 30 min + quarterly 90 min. Skipping the weekly review for 3 consecutive weeks = stop-the-line. (`java-human-review-ritual`)
+31. **Framework has explicit success metrics.** Outcome metrics (services shipped, mutation score, MTTR) and leading indicators (vault health, validator status, open drifts) reviewed weekly. Mutation score is the real coverage signal — PIT ≥ 85% on domain+application. (`java-framework-metrics`)
+32. **Every branch ties to an issue. Every commit has an `Intent:` block. Claude auto-commits after each end-to-end-green task.** (`java-git-workflow`)
+33. **No destructive Git ops without explicit user approval.** (`java-git-workflow` §6)
 
 ---
 

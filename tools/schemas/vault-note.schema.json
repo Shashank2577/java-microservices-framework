@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Shashank2577/java-microservices-framework/schemas/vault-note.schema.json",
+  "title": "Vault note frontmatter schema",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "index",
+        "session",
+        "decision",
+        "person",
+        "ticket",
+        "component",
+        "finding",
+        "debugging",
+        "drift",
+        "adversarial-drift-report",
+        "brd",
+        "prd"
+      ]
+    },
+    "id": { "type": "string" },
+    "date": { "type": "string", "format": "date" },
+    "status": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "decision" } }, "required": ["type"] },
+      "then": { "required": ["id", "tags", "date", "authors", "status"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "session" } }, "required": ["type"] },
+      "then": { "required": ["date", "authors"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "person" } }, "required": ["type"] },
+      "then": { "required": ["name", "slug", "status"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "ticket" } }, "required": ["type"] },
+      "then": { "required": ["id", "title", "state", "opened"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "component" } }, "required": ["type"] },
+      "then": { "required": ["name", "slug", "kind", "lifecycle", "status"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "finding" } }, "required": ["type"] },
+      "then": { "required": ["date", "tags", "discovered-by", "status"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "debugging" } }, "required": ["type"] },
+      "then": { "required": ["date", "tags", "investigators", "status"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "drift" } }, "required": ["type"] },
+      "then": { "required": ["id", "date", "detected-by", "commit", "component", "status"] }
+    }
+  ]
+}

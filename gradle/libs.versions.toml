@@ -1,0 +1,152 @@
+#
+# Version catalog — single source of truth for dependency versions.
+# Rule: never write a version literal in a build.gradle.kts. Always cite via `libs.x`.
+# See `.claude/skills/java-stack/SKILL.md` "Dependency Hygiene".
+#
+
+[versions]
+java = "21"
+
+# Frameworks
+spring-boot       = "3.4.1"
+spring-cloud      = "2024.0.0"
+spring-modulith   = "1.4.0"        # adopted per research — modular monolith + event externalization
+
+# Persistence
+flyway            = "10.20.1"
+postgresql-jdbc   = "42.7.4"
+hibernate         = "6.6.4.Final"  # aligned with Spring Boot 3.4
+
+# Messaging
+kafka-clients     = "3.9.0"
+confluent         = "7.8.0"
+avro              = "1.12.0"
+
+# Cache
+caffeine          = "3.2.0"
+lettuce           = "6.5.1.RELEASE"
+
+# Resilience
+resilience4j     = "2.2.0"
+
+# Observability
+micrometer       = "1.14.2"
+otel             = "1.45.0"
+logstash-logback = "8.0"
+
+# Validation / utilities
+hibernate-validator = "8.0.2.Final"
+jackson           = "2.18.2"
+mapstruct         = "1.6.3"
+
+# Testing
+junit-jupiter    = "5.11.4"
+assertj          = "3.27.0"
+mockito          = "5.14.2"
+testcontainers   = "1.20.4"
+archunit         = "1.3.0"
+wiremock         = "3.10.0"
+pitest-junit5    = "1.2.1"
+spring-cloud-contract = "4.2.0"
+
+# Code quality
+spotless         = "7.0.2"
+errorprone       = "2.36.0"
+nullaway         = "0.12.2"
+jacoco           = "0.8.12"
+pitest-plugin    = "1.15.0"
+spotbugs-plugin  = "6.0.27"
+dep-check-plugin = "10.0.4"
+gradle-license-report = "2.9"
+
+[libraries]
+# --- Spring Boot ---
+spring-boot-starter             = { module = "org.springframework.boot:spring-boot-starter" }
+spring-boot-starter-web         = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-validation  = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-actuator    = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-data-jpa    = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-security    = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-boot-starter-cache       = { module = "org.springframework.boot:spring-boot-starter-cache" }
+spring-boot-starter-test        = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+spring-kafka                    = { module = "org.springframework.kafka:spring-kafka" }
+spring-kafka-test               = { module = "org.springframework.kafka:spring-kafka-test" }
+
+# --- Spring Modulith (adopted) ---
+spring-modulith-bom             = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+spring-modulith-starter-core    = { module = "org.springframework.modulith:spring-modulith-starter-core" }
+spring-modulith-starter-jpa     = { module = "org.springframework.modulith:spring-modulith-starter-jpa" }
+spring-modulith-events-kafka    = { module = "org.springframework.modulith:spring-modulith-events-kafka" }
+spring-modulith-events-api      = { module = "org.springframework.modulith:spring-modulith-events-api" }
+spring-modulith-starter-test    = { module = "org.springframework.modulith:spring-modulith-starter-test" }
+
+# --- Persistence ---
+flyway-core                     = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgres                 = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql-jdbc                 = { module = "org.postgresql:postgresql", version.ref = "postgresql-jdbc" }
+
+# --- Resilience ---
+resilience4j-spring-boot3       = { module = "io.github.resilience4j:resilience4j-spring-boot3", version.ref = "resilience4j" }
+resilience4j-reactor            = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
+
+# --- Observability ---
+micrometer-registry-prometheus  = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+micrometer-tracing              = { module = "io.micrometer:micrometer-tracing", version.ref = "micrometer" }
+micrometer-tracing-bridge-otel  = { module = "io.micrometer:micrometer-tracing-bridge-otel", version.ref = "micrometer" }
+otel-exporter-otlp              = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }
+logstash-logback-encoder        = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-logback" }
+
+# --- Cache ---
+caffeine                        = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+# --- Testing ---
+junit-jupiter                   = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+assertj-core                    = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+mockito-core                    = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+testcontainers-bom              = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-postgresql       = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-kafka            = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+testcontainers-junit-jupiter    = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+archunit-junit5                 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+wiremock                        = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+spring-cloud-contract-stub-runner = { module = "org.springframework.cloud:spring-cloud-starter-contract-stub-runner" }
+spring-cloud-contract-verifier  = { module = "org.springframework.cloud:spring-cloud-contract-verifier" }
+
+# --- Code quality (compile-time) ---
+errorprone-core                 = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+nullaway                        = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+mapstruct                       = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor             = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+
+[bundles]
+spring-test = [
+    "spring-boot-starter-test",
+    "assertj-core",
+    "junit-jupiter",
+    "mockito-core",
+    "archunit-junit5",
+]
+testcontainers-pg-kafka = [
+    "testcontainers-postgresql",
+    "testcontainers-kafka",
+    "testcontainers-junit-jupiter",
+]
+observability = [
+    "spring-boot-starter-actuator",
+    "micrometer-registry-prometheus",
+    "micrometer-tracing-bridge-otel",
+    "otel-exporter-otlp",
+    "logstash-logback-encoder",
+]
+
+[plugins]
+spring-boot          = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-deps-mgmt     = { id = "io.spring.dependency-management", version = "1.1.6" }
+spotless             = { id = "com.diffplug.spotless", version.ref = "spotless" }
+errorprone           = { id = "net.ltgt.errorprone", version = "4.0.1" }
+spotbugs             = { id = "com.github.spotbugs", version.ref = "spotbugs-plugin" }
+dep-check            = { id = "org.owasp.dependencycheck", version.ref = "dep-check-plugin" }
+pitest               = { id = "info.solidsoft.pitest", version.ref = "pitest-plugin" }
+gradle-license-report = { id = "com.github.jk1.dependency-license-report", version.ref = "gradle-license-report" }

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":timezone(UTC)"
+  ],
+  "schedule": ["after 21:00 on saturday"],
+  "rangeStrategy": "bump",
+  "labels": ["dependencies"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "description": "Spring Boot ecosystem — grouped, manual review",
+      "matchPackagePatterns": ["^org\\.springframework", "^io\\.spring"],
+      "groupName": "Spring Boot",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Testcontainers grouped",
+      "matchPackagePatterns": ["^org\\.testcontainers"],
+      "groupName": "Testcontainers"
+    },
+    {
+      "description": "Patch updates auto-merge after CI",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Major bumps need manual review + ADR",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-bump", "needs-adr"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security", "needs-review"],
+    "schedule": ["at any time"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  }
+}
