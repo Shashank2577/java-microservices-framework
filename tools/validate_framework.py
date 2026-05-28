@@ -19,6 +19,7 @@ Usage:  python3 tools/validate_framework.py [--quiet]
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -29,20 +30,30 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / ".claude" / "skills"
 JABRENA_DIR = SKILLS_DIR / "lib" / "jabrena"
 VAULT_DIR = REPO_ROOT / ".vault"
+VAULT_SCHEMA_PATH = REPO_ROOT / "tools" / "schemas" / "vault-note.schema.json"
 
-# Required frontmatter keys per note type. None = type not yet locked down.
-VAULT_SCHEMAS: dict[str, set[str]] = {
-    "decision": {"id", "type", "tags", "date", "authors", "status"},
-    "session": {"type", "date", "authors"},
-    "person": {"type", "name", "slug", "status"},
-    "ticket": {"type", "id", "title", "state", "opened"},
-    "component": {"type", "name", "slug", "kind", "lifecycle", "status"},
-    "finding": {"type", "date", "tags", "discovered-by", "status"},
-    "debugging": {"type", "date", "tags", "investigators", "status"},
-    "drift": {"id", "type", "date", "detected-by", "commit", "component", "status"},
-    "index": {"type"},
-    "adversarial-drift-report": {"type", "date", "generated-by", "status"},
-}
+
+def load_vault_schemas() -> dict[str, set[str]]:
+    """Read the JSON Schema and derive required-field sets per note type.
+
+    Single source of truth: the JSON Schema is consumed by both this validator
+    AND the GitHub Action (mheap/frontmatter-json-schema-action). The two used
+    to drift; now they don't.
+    """
+    schema = json.loads(VAULT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    base_required: set[str] = set(schema.get("required", []))
+    enum_types: set[str] = set(schema.get("properties", {}).get("type", {}).get("enum", []))
+    per_type: dict[str, set[str]] = {t: set(base_required) for t in enum_types}
+    for rule in schema.get("allOf", []):
+        cond = rule.get("if", {}).get("properties", {}).get("type", {})
+        target = cond.get("const")
+        then = rule.get("then", {}).get("required", [])
+        if target and then:
+            per_type.setdefault(target, set(base_required)).update(then)
+    return per_type
+
+
+VAULT_SCHEMAS: dict[str, set[str]] = load_vault_schemas()
 
 # Coverage threshold canon — these must match wherever they're mentioned.
 COVERAGE_CANON = {

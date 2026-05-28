@@ -16,6 +16,10 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/**/build/
 
+# Python bytecode
+__pycache__/
+*.pyc
+
 # IDE
 .idea/
 *.iml

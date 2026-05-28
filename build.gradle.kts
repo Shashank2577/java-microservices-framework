@@ -3,11 +3,12 @@
 
 plugins {
     // Apply versions; sub-projects opt in via `plugins { alias(libs.plugins.x) }`.
-    alias(libs.plugins.spotless)        apply false
-    alias(libs.plugins.errorprone)      apply false
-    alias(libs.plugins.spotbugs)        apply false
-    alias(libs.plugins.dep-check)       apply false
-    alias(libs.plugins.pitest)          apply false
+    // Kotlin DSL maps kebab-case aliases to dot-segment accessors.
+    alias(libs.plugins.spotless) apply false
+    alias(libs.plugins.errorprone) apply false
+    alias(libs.plugins.spotbugs) apply false
+    alias(libs.plugins.dep.check) apply false
+    alias(libs.plugins.pitest) apply false
 }
 
 allprojects {
@@ -22,7 +23,10 @@ subprojects {
 
     extensions.configure<JavaPluginExtension> {
         toolchain {
-            languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInt())
+            // Java 21 LTS — `[versions] java` in gradle/libs.versions.toml is the canonical
+            // declaration; the value is repeated here because the typed `libs` accessor is
+            // not available inside `subprojects {}`. If you bump Java, bump both.
+            languageVersion = JavaLanguageVersion.of(21)
             vendor = JvmVendorSpec.ADOPTIUM
         }
         withSourcesJar()

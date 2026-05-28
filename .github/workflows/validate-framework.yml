@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validator unit + integration tests
+        run: python3 tools/test_validate_framework.py
       - name: Run framework validator
         run: python3 tools/validate_framework.py
 

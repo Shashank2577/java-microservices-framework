@@ -121,6 +121,15 @@ mapstruct                       = { module = "org.mapstruct:mapstruct", version.
 mapstruct-processor             = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
 
 [bundles]
+# For Spring-free libraries — JUnit + AssertJ + Mockito only. Use in `domain-primitives`,
+# `error-model`, and other building blocks that must not pull Spring into their classpath.
+pure-test = [
+    "junit-jupiter",
+    "assertj-core",
+    "mockito-core",
+]
+# For Spring-Boot modules' tests — includes spring-boot-starter-test (whose version is
+# managed by the spring.dependency-management plugin applied in those modules).
 spring-test = [
     "spring-boot-starter-test",
     "assertj-core",

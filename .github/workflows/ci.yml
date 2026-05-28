@@ -38,16 +38,15 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10'
-
       - name: Validate framework (cross-skill consistency)
         run: python3 tools/validate_framework.py
 
-      - name: Build (compile + test + jacoco + spotless)
-        run: gradle check --no-daemon --stacktrace
+      - name: Build (compile + test + jacoco + spotless) via wrapper
+        run: ./gradlew check --no-daemon --stacktrace
+
+      - name: Mutation testing (PIT) — domain + application
+        run: ./gradlew pitest --no-daemon --stacktrace
+        continue-on-error: true   # gate added once all modules support it
 
       - name: Publish coverage report
         if: always()

@@ -11,7 +11,7 @@
  *   <li>Public API documented; missing Javadoc fails the build.
  * </ul>
  *
- * <p>Enforced by ArchUnit rules in {@code test-support} and by the framework
- * validator at {@code tools/validate_framework.py}.
+ * <p>Enforced by ArchUnit rules in {@code test-support} and by the framework validator at {@code
+ * tools/validate_framework.py}.
  */
 package com.example.platform.domain.primitives;

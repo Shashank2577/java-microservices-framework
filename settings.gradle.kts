@@ -5,17 +5,22 @@ pluginManagement {
     }
 }
 
+// Foojay toolchain resolver — lets Gradle auto-download Temurin JDKs when the local
+// environment lacks an exact match. Without this, the `JvmVendorSpec.ADOPTIUM`
+// requirement in the toolchain config fails on machines with non-Temurin JDKs
+// (e.g., a Homebrew OpenJDK).
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         maven("https://packages.confluent.io/maven/")    // Confluent Avro serializers
     }
-    versionCatalogs {
-        create("libs") {
-            from(files("gradle/libs.versions.toml"))
-        }
-    }
+    // gradle/libs.versions.toml is auto-detected by Gradle 8 as the `libs` catalog —
+    // no manual `versionCatalogs { create("libs") { from(...) } }` needed.
 }
 
 rootProject.name = "java-microservices-framework"

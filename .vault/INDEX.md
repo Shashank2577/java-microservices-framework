@@ -1,6 +1,6 @@
 ---
 type: index
-last-updated: 2026-05-28
+last-updated: 2026-05-29
 ---
 
 # Project Vault — INDEX
@@ -15,13 +15,14 @@ This page is the orientation point for the vault. Claude updates it whenever new
 
 ## Recent sessions
 
-- *(none yet — the first session note will be created at the next Claude commit)*
+- [[2026-05-29]] — bootstrap wrapper, prove build, wire PIT, unify schemas, validator tests
+- [[2026-05-28]] — vault introduction, third-pass skills, first reference module
 
 ## Active components
 
 *(One note per service / module in this repo. Owners and current shape.)*
 
-- *(none yet — populated as services are scaffolded)*
+- [[domain-primitives]] — Java 21 pure value objects (`TenantId`, `Money`, `Result`). 91% mutation score, 99% instruction / 91% branch coverage.
 
 ## Active decisions
 
