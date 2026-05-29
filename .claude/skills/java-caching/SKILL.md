@@ -180,6 +180,6 @@ In Spring Cache: `condition = "#result != null"` to *not* cache negatives, or `u
 
 ## 14. Reference
 
-- Spring Cache reference: https://docs.spring.io/spring-boot/docs/3.4.x/reference/html/io.html#io.caching
+- Spring Cache reference: https://docs.spring.io/spring-boot/reference/io/caching.html
 - Caffeine: https://github.com/ben-manes/caffeine
 - Designing Data-Intensive Applications, ch. 7 — for the invariants that bite.
