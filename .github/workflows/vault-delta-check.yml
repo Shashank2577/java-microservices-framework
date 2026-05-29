@@ -1,0 +1,90 @@
+name: Vault delta check
+
+# Backstop for the framework's own discipline: every PR that changes substantive
+# code MUST also update the vault (per java-vault skill + java-git-workflow §3.1
+# condition #11). This action does NOT block merge — it comments on the PR so
+# the reviewer can decide if the omission is intentional. Repeated bypasses
+# show up in the framework metrics (`java-framework-metrics`).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-vault-delta:
+    name: Did this PR update the vault?
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Inspect changed files
+        id: changes
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          changed_paths=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          code_changed=$(printf '%s\n' "$changed_paths" | grep -E '^(platform|services|tools)/' | grep -vE '\.md$' || true)
+          vault_changed=$(printf '%s\n' "$changed_paths" | grep -E '^\.vault/' || true)
+          skill_changed=$(printf '%s\n' "$changed_paths" | grep -E '^\.claude/skills/' || true)
+
+          code_lines=0
+          if [ -n "$code_changed" ]; then
+            code_lines=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- $(printf '%s\n' "$code_changed") | awk '{s+=$1+$2} END {print s+0}')
+          fi
+
+          {
+            echo "code_files<<EOF"
+            echo "$code_changed"
+            echo "EOF"
+            echo "vault_files<<EOF"
+            echo "$vault_changed"
+            echo "EOF"
+            echo "skill_files<<EOF"
+            echo "$skill_changed"
+            echo "EOF"
+            echo "code_lines=$code_lines"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR if discipline missed
+        if: steps.changes.outputs.code_lines > 50 && steps.changes.outputs.vault_files == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const codeLines = ${{ steps.changes.outputs.code_lines }};
+            const body = [
+              '### Vault delta check — backstop',
+              '',
+              `This PR changes **${codeLines} lines** of code under \`platform/\`, \`services/\`, or \`tools/\`,`,
+              'but does not update anything under `.vault/`.',
+              '',
+              'The framework\'s `java-vault` skill (§5) and `java-git-workflow` §3.1 (condition #11) require',
+              'every commit that does substantive work to:',
+              '- append an entry to today\'s `.vault/sessions/YYYY-MM-DD.md`,',
+              '- create or update affected `components/<name>.md`,',
+              '- write a `decisions/NNNN-<slug>.md` if a non-trivial technical choice was made,',
+              '- write a `findings/<date>-<slug>.md` for surprising library behavior,',
+              '- run drift detection (open a `drift/<date>-<slug>.md` if a documented decision was contradicted).',
+              '',
+              '**This action does not block merge.** If the omission is intentional (e.g., pure refactor with no decision content), say so in a PR comment and proceed. If it isn\'t, please update the vault before merging — vault changes belong in the same commit as the code.',
+              '',
+              '_Backstop owned by `.github/workflows/vault-delta-check.yml`._',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Summary
+        run: |
+          echo "Code lines changed: ${{ steps.changes.outputs.code_lines }}"
+          echo "Vault files changed: $(echo '${{ steps.changes.outputs.vault_files }}' | grep -c . || echo 0)"
+          echo "Skill files changed: $(echo '${{ steps.changes.outputs.skill_files }}' | grep -c . || echo 0)"

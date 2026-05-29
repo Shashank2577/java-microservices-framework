@@ -55,7 +55,7 @@ jabrena targets **Spring Boot 4.0.x** (Spring Framework 7.x). We are on **3.4.x*
 - Virtual threads via `spring.threads.virtual.enabled=true` — same on both. ✓
 - Jakarta EE namespace (`jakarta.*`) — same. ✓
 - `@ConfigurationProperties` + `@Validated` — same. ✓
-- New 4.x APIs (if any examples reference them) — confirm against [Spring Boot 3.4 docs](https://docs.spring.io/spring-boot/docs/3.4.x/reference/) before adopting.
+- New 4.x APIs (if any examples reference them) — confirm against [Spring Boot 3.4 docs](https://docs.spring.io/spring-boot/reference/) before adopting.
 - Spring Security 6.3 (our line) vs 6.4 (4.x line) — minor API shifts; the patterns hold.
 
 ### Multi-tenancy

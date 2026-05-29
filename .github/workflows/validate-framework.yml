@@ -56,20 +56,10 @@ jobs:
             './**/*.md'
           fail: true
 
-  markdown-style:
-    name: Markdownlint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@v17
-        with:
-          globs: |
-            **/*.md
-            !.reference/**
-            !.omc/**
-            !.claude/skills/lib/jabrena/**
-          config: .markdownlint.jsonc
+  # Markdownlint removed from CI per .vault/decisions/0002-drop-markdownlint-from-ci.md
+  # The substantive validators (cross-skill consistency, frontmatter schema, link check)
+  # catch what matters. Markdownlint was enforcing typographic conventions that the
+  # framework's prose style consistently fights — repeat false-positive surface.
 
   vault-frontmatter:
     name: Vault frontmatter schema

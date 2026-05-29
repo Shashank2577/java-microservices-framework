@@ -39,3 +39,6 @@ application-local.yml
 # Heap / thread dumps
 *.hprof
 *.dump
+
+# Obsidian per-machine metadata (committed vault is the markdown + frontmatter only)
+.vault/.obsidian/

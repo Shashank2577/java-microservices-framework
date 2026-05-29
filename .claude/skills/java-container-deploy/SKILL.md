@@ -342,7 +342,7 @@ spec:
 
 ## 14. Reference
 
-- Spring Boot reference: [Container Images](https://docs.spring.io/spring-boot/docs/3.4.x/reference/html/container-images.html)
+- Spring Boot reference: [Container Images](https://docs.spring.io/spring-boot/reference/packaging/container-images/index.html)
 - Jib: https://github.com/GoogleContainerTools/jib
 - Paketo buildpacks: https://paketo.io/docs/
 - Cloud Native JVM tuning (Sergio del Amo / Spring team) — search "Spring Boot JVM container memory".

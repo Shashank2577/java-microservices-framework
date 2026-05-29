@@ -28,7 +28,12 @@ This page is the orientation point for the vault. Claude updates it whenever new
 
 *(Smaller-than-ADR engineering decisions. ADRs themselves live in `docs/adrs/`.)*
 
-- *(none yet — populated as decisions are made)*
+- [[0002-drop-markdownlint-from-ci]] — drop markdownlint entirely (supersedes [[0001-relax-markdownlint-md031-md032-md040]])
+
+## Recent findings
+
+- [[2026-05-29-spring-docs-url-restructure]] — Spring Boot reference docs URL pattern changed; old `/docs/3.4.x/reference/html/` paths return 404
+- [[2026-05-29-kafka-georeplication-fragment]] — kafka.apache.org `#georeplication` anchor renamed to `#georeplication-overview`
 
 ## People
 
