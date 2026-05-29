@@ -28,7 +28,7 @@ This page is the orientation point for the vault. Claude updates it whenever new
 
 *(Smaller-than-ADR engineering decisions. ADRs themselves live in `docs/adrs/`.)*
 
-- [[0001-relax-markdownlint-md031-md032-md040]] — disable three markdownlint rules that don't fit the framework's tight skill-writing style
+- [[0002-drop-markdownlint-from-ci]] — drop markdownlint entirely (supersedes [[0001-relax-markdownlint-md031-md032-md040]])
 
 ## Recent findings
 

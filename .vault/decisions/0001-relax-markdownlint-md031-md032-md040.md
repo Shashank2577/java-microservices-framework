@@ -5,8 +5,8 @@ tags: [#decision, #ci, #docs]
 date: 2026-05-29
 authors: [[shashank]], [[claude]]
 supersedes: []
-superseded-by: []
-status: active
+superseded-by: [[0002-drop-markdownlint-from-ci]]
+status: superseded
 linked-commits: []
 linked-tickets: []
 linked-components: []

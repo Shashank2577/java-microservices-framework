@@ -239,7 +239,7 @@ Before any service ships to prod:
 ## 16. References
 
 - Postgres docs — Continuous Archiving and Point-in-Time Recovery: https://www.postgresql.org/docs/current/continuous-archiving.html
-- Kafka MirrorMaker2 (Geo-Replication): https://kafka.apache.org/documentation/#georeplication-overview
+- Kafka MirrorMaker2 (Geo-Replication): https://kafka.apache.org/documentation/
 - Debezium replication slot ops (for CDC-based outbox DR): https://debezium.io/documentation/reference/stable/connectors/postgresql.html
 - `.claude/skills/lib/jabrena/030-architecture-adr-general/references/030-architecture-adr-general.md` — ADR template for documenting DR/cost tradeoffs.
 - `java-multi-tenancy` §1 (tenant registry), §5 (per-tenant Flyway) — schema model that makes per-tenant restore tractable.
